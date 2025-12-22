@@ -1,0 +1,13 @@
+{
+  "mcpServers": {
+    "st-risk-platform": {
+      "command": "uvicorn",
+      "args": ["app:app", "--host", "0.0.0.0", "--port", "8000"],
+      "env": {
+        "ST_RISK_API_KEY": "dev-key",
+        "FEATURE_SERVICE_URL": "http://feature-service:8001",
+        "MODEL_SERVICE_URL": "http://model-service:8002"
+      }
+    }
+  }
+}
