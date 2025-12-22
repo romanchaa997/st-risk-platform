@@ -1,0 +1,5 @@
+fastapi[all]
+fastapi-mcp
+pydantic
+mlflow
+clickhouse-driver
