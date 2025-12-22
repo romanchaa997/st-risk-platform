@@ -12,6 +12,32 @@ services:
     depends_on:
       - mlflow
       - clickhouse
+      - postgres
+      - feature-service
+      - model-service
+
+  feature-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn services.feature-service.main:app --host 0.0.0.0 --port 8001
+    container_name: st-feature-service
+    ports:
+      - "8001:8001"
+    depends_on:
+      - clickhouse
+      - postgres
+
+  model-service:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    command: uvicorn services.model-service.main:app --host 0.0.0.0 --port 8002
+    container_name: st-model-service
+    ports:
+      - "8002:8002"
+    depends_on:
+      - mlflow
 
   mlflow:
     image: ghcr.io/mlflow/mlflow:latest
@@ -33,7 +59,17 @@ services:
     ports:
       - "8123:8123"
       - "9000:9000"
-    ulimits:
-      nofile:
-        soft: 262144
-        hard: 262144
+    volumes:
+      - ./sql/clickhouse_schema.sql:/docker-entrypoint-initdb.d/init.sql
+
+  postgres:
+    image: postgis/postgis:15-3.3
+    container_name: st-risk-postgres
+    environment:
+      - POSTGRES_USER=admin
+      - POSTGRES_PASSWORD=admin
+      - POSTGRES_DB=st_risk
+    ports:
+      - "5432:5432"
+    volumes:
+      - ./sql/postgres_schema.sql:/docker-entrypoint-initdb.d/init.sql
