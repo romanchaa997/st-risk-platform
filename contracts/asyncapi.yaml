@@ -1,0 +1,28 @@
+asyncapi: 3.0.0
+info:
+  title: Spatio-Temporal Risk Platform (Event Stream)
+  version: 1.0.0
+  description: Event-driven contracts for risk detection and alerting.
+
+channels:
+  risk.events:
+    address: 'risk/events'
+    messages:
+      riskDetected:
+        $ref: '#/components/messages/RiskDetected'
+
+components:
+  messages:
+    RiskDetected:
+      payload:
+        type: object
+        properties:
+          id: { type: string, format: uuid }
+          risk_score: { type: number, minimum: 0, maximum: 1 }
+          coordinates:
+            type: array
+            items: { type: number }
+            minItems: 2
+            maxItems: 2
+          timestamp: { type: string, format: date-time }
+          metadata: { type: object }
