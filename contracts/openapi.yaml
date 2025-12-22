@@ -1,0 +1,305 @@
+openapi: 3.0.3
+info:
+  title: Spatio-Temporal Risk Platform
+  version: 1.0.0
+servers:
+  - url: https://api.example.com
+
+paths:
+  /features/snapshot:
+    get:
+      summary: Get ST feature snapshot
+      operationId: getSnapshot
+      parameters:
+        - in: query
+          name: time
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: horizon_sec
+          required: false
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Snapshot of features per cell
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SnapshotResponse"
+
+  /features/build-window:
+    post:
+      summary: Build ST features for given cells and windows
+      operationId: buildWindow
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/BuildWindowRequest"
+      responses:
+        "200":
+          description: Built features
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/BuildWindowResponse"
+
+  /score-snapshot:
+    post:
+      summary: Score snapshot with probabilistic model
+      operationId: scoreSnapshot
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ScoreRequest"
+      responses:
+        "200":
+          description: Probabilistic forecast per zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ScoreResponse"
+
+  /reload-model:
+    post:
+      summary: Reload model artifact
+      operationId: reloadModel
+      requestBody:
+        required: true
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ReloadModelRequest"
+      responses:
+        "200":
+          description: Model reload status
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ReloadModelResponse"
+
+  /risk-map:
+    get:
+      summary: Get aggregated risk map
+      operationId: getRiskMap
+      parameters:
+        - in: query
+          name: time
+          required: true
+          schema:
+            type: string
+            format: date-time
+        - in: query
+          name: horizon_sec
+          required: true
+          schema:
+            type: integer
+      responses:
+        "200":
+          description: Aggregated risk metrics per zone
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RiskMapResponse"
+
+components:
+  schemas:
+    FeatureVector:
+      type: object
+      additionalProperties:
+        oneOf:
+          - type: number
+          - type: integer
+
+    CellFeatures:
+      type: object
+      properties:
+        cell_id:
+          type: integer
+        window_start:
+          type: string
+          format: date-time
+        window_end:
+          type: string
+          format: date-time
+        feature_vector:
+          $ref: "#/components/schemas/FeatureVector"
+      required: [cell_id, window_start, window_end, feature_vector]
+
+    SnapshotResponse:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        horizon_sec:
+          type: integer
+          nullable: true
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/CellFeatures"
+      required: [time, features]
+
+    BuildWindowRequest:
+      type: object
+      properties:
+        cell_ids:
+          type: array
+          items:
+            type: integer
+        time:
+          type: string
+          format: date-time
+        window_sizes_sec:
+          type: array
+          items:
+            type: integer
+      required: [cell_ids, time, window_sizes_sec]
+
+    BuildWindowResponse:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        features:
+          type: array
+          items:
+            $ref: "#/components/schemas/CellFeatures"
+      required: [time, features]
+
+    CellInput:
+      type: object
+      properties:
+        cell_id:
+          type: integer
+        features:
+          $ref: "#/components/schemas/FeatureVector"
+      required: [cell_id, features]
+
+    ScoreRequest:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        horizon_sec:
+          type: integer
+        cells:
+          type: array
+          items:
+            $ref: "#/components/schemas/CellInput"
+        n_scenarios:
+          type: integer
+          default: 50
+      required: [time, horizon_sec, cells]
+
+    Scenario:
+      type: object
+      properties:
+        scenario_id:
+          type: integer
+        risk_value:
+          type: number
+      required: [scenario_id, risk_value]
+
+    DistributionParams:
+      type: object
+      properties:
+        p_event:
+          type: number
+        q05:
+          type: number
+        q50:
+          type: number
+        q95:
+          type: number
+      required: [p_event, q05, q50, q95]
+
+    ZoneForecast:
+      type: object
+      properties:
+        cell_id:
+          type: integer
+        distribution_params:
+          $ref: "#/components/schemas/DistributionParams"
+        scenarios:
+          type: array
+          items:
+            $ref: "#/components/schemas/Scenario"
+      required: [cell_id, distribution_params, scenarios]
+
+    ScoreResponse:
+      type: object
+      properties:
+        model_version:
+          type: string
+        time:
+          type: string
+          format: date-time
+        horizon_sec:
+          type: integer
+        zones:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneForecast"
+      required: [model_version, time, horizon_sec, zones]
+
+    ReloadModelRequest:
+      type: object
+      properties:
+        version:
+          type: string
+        artifact_uri:
+          type: string
+      required: [version, artifact_uri]
+
+    ReloadModelResponse:
+      type: object
+      properties:
+        status:
+          type: string
+        loaded_version:
+          type: string
+        loaded_at:
+          type: string
+          format: date-time
+      required: [status, loaded_version, loaded_at]
+
+    ZoneRisk:
+      type: object
+      properties:
+        cell_id:
+          type: integer
+        p_event:
+          type: number
+        mean_risk:
+          type: number
+        q05:
+          type: number
+        q50:
+          type: number
+        q95:
+          type: number
+      required: [cell_id, p_event, mean_risk, q05, q50, q95]
+
+    RiskMapResponse:
+      type: object
+      properties:
+        time:
+          type: string
+          format: date-time
+        horizon_sec:
+          type: integer
+        aggregated:
+          type: array
+          items:
+            $ref: "#/components/schemas/ZoneRisk"
+      required: [time, horizon_sec, aggregated]
