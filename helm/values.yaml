@@ -1,0 +1,189 @@
+# Default values for st-risk-platform Helm chart
+# Production-grade Kubernetes deployment
+
+global:
+  environment: production
+  domain: api.example.com
+
+replicaCount: 3
+
+image:
+  repository: st-risk-platform
+  tag: latest
+  pullPolicy: IfNotPresent
+
+serviceAccount:
+  create: true
+  name: st-risk-sa
+
+service:
+  type: LoadBalancer
+  port: 443
+  targetPort: 8000
+  annotations:
+    service.beta.kubernetes.io/aws-load-balancer-type: nlb
+
+ingress:
+  enabled: true
+  className: nginx
+  annotations:
+    cert-manager.io/cluster-issuer: letsencrypt-prod
+    nginx.ingress.kubernetes.io/rate-limit: "100"
+  hosts:
+    - host: api.example.com
+      paths:
+        - path: /
+          pathType: Prefix
+  tls:
+    - secretName: st-risk-tls
+      hosts:
+        - api.example.com
+
+resources:
+  limits:
+    cpu: 1000m
+    memory: 2Gi
+  requests:
+    cpu: 500m
+    memory: 1Gi
+
+autoscaling:
+  enabled: true
+  minReplicas: 2
+  maxReplicas: 10
+  targetCPUUtilizationPercentage: 70
+  targetMemoryUtilizationPercentage: 80
+
+env:
+  ENVIRONMENT: production
+  LOG_LEVEL: INFO
+  WORKERS: "4"
+  DATABASE_URL: postgresql://user:password@postgres:5432/st_risk
+  CLICKHOUSE_HOST: clickhouse
+  CLICKHOUSE_PORT: "9000"
+  REDIS_URL: redis://redis:6379/0
+
+secrets:
+  - name: DATABASE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: db-credentials
+        key: password
+  - name: CLICKHOUSE_PASSWORD
+    valueFrom:
+      secretKeyRef:
+        name: clickhouse-credentials
+        key: password
+
+livenessProbe:
+  httpGet:
+    path: /health
+    port: 8000
+  initialDelaySeconds: 30
+  periodSeconds: 10
+  timeoutSeconds: 5
+  failureThreshold: 3
+
+readinessProbe:
+  httpGet:
+    path: /ready
+    port: 8000
+  initialDelaySeconds: 10
+  periodSeconds: 5
+  timeoutSeconds: 3
+  failureThreshold: 2
+
+postgres:
+  enabled: true
+  auth:
+    username: user
+    password: changeme
+    database: st_risk
+  primary:
+    resources:
+      limits:
+        memory: 1Gi
+        cpu: 1000m
+      requests:
+        memory: 512Mi
+        cpu: 500m
+
+clickhouse:
+  enabled: true
+  auth:
+    username: default
+    password: changeme
+  resources:
+    limits:
+      memory: 4Gi
+      cpu: 2000m
+    requests:
+      memory: 2Gi
+      cpu: 1000m
+
+redis:
+  enabled: true
+  auth:
+    enabled: true
+    password: changeme
+  resources:
+    limits:
+      memory: 512Mi
+      cpu: 500m
+
+prometheus:
+  enabled: true
+  retention: 30d
+  scrapeInterval: 15s
+  evaluationInterval: 15s
+
+grafana:
+  enabled: true
+  adminPassword: admin
+  datasources:
+    - name: Prometheus
+      type: prometheus
+      url: http://prometheus:9090
+
+nodeSelector: {}
+
+tolerations: []
+
+affinity:
+  podAntiAffinity:
+    preferredDuringSchedulingIgnoredDuringExecution:
+      - weight: 100
+        podAffinityTerm:
+          labelSelector:
+            matchExpressions:
+              - key: app
+                operator: In
+                values:
+                  - st-risk
+          topologyKey: kubernetes.io/hostname
+
+strategy:
+  type: RollingUpdate
+  rollingUpdate:
+    maxSurge: 1
+    maxUnavailable: 0
+
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  fsGroup: 1000
+  capabilities:
+    drop:
+      - ALL
+
+networkPolicy:
+  enabled: true
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: nginx
+
+podDisruptionBudget:
+  enabled: true
+  minAvailable: 1
