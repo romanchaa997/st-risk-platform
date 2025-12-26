@@ -1,0 +1,45 @@
+{
+  "dashboard": {
+    "title": "st-risk-platform Performance",
+    "panels": [
+      {
+        "title": "P95 Latency (ms)",
+        "targets": [
+          {"expr": "histogram_quantile(0.95, http_request_duration_seconds_bucket)"}
+        ]
+      },
+      {
+        "title": "Throughput (req/s)",
+        "targets": [
+          {"expr": "rate(http_requests_total[1m])"}
+        ]
+      },
+      {
+        "title": "Error Rate (%)",
+        "targets": [
+          {"expr": "(rate(http_requests_total{status=~'5..'}[5m]) / rate(http_requests_total[5m])) * 100"}
+        ]
+      },
+      {
+        "title": "CPU Usage (%)",
+        "targets": [
+          {"expr": "rate(process_cpu_seconds_total[5m]) * 100"}
+        ]
+      },
+      {
+        "title": "Memory (MB)",
+        "targets": [
+          {"expr": "process_resident_memory_bytes / 1024 / 1024"}
+        ]
+      },
+      {
+        "title": "Cache Hit Ratio",
+        "targets": [
+          {"expr": "(cache_hits_total) / (cache_hits_total + cache_misses_total) * 100"}
+        ]
+      }
+    ],
+    "refresh": "10s",
+    "time": {"from": "now-1h", "to": "now"}
+  }
+}
